@@ -9,7 +9,7 @@ import {
   Users, CheckCircle2, Ban, ShieldAlert,
   UserCheck, UserX,
 } from 'lucide-react'
-import type { Role, UserStatus } from '@prisma/client'
+import type { Role, AccountStatus } from '@prisma/client'
 
 const roleBadge: Record<Role, { label: string; className: string }> = {
   ADMIN:          { label: 'Admin',          className: 'bg-stone-200 text-stone-700'   },
@@ -19,7 +19,7 @@ const roleBadge: Record<Role, { label: string; className: string }> = {
   LOCATAIRE:      { label: 'Locataire',      className: 'bg-lime-100 text-lime-800'     },
 }
 
-const statusBadge: Record<UserStatus, { label: string; className: string }> = {
+const statusBadge: Record<AccountStatus, { label: string; className: string }> = {
   PENDING:   { label: 'En attente', className: 'bg-amber-100 text-amber-800' },
   ACTIVE:    { label: 'Actif',      className: 'bg-green-100 text-green-800' },
   SUSPENDED: { label: 'Suspendu',   className: 'bg-red-100 text-red-700'     },
@@ -34,7 +34,7 @@ type UserRow = {
   name: string | null
   email: string | null
   role: Role
-  status: UserStatus
+  status: AccountStatus
   createdAt: Date
 }
 

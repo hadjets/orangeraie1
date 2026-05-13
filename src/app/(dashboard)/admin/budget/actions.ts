@@ -20,7 +20,7 @@ export async function approveQuote(quoteId: string) {
   return { success: true }
 }
 
-export async function rejectQuote(quoteId: string, reason: string) {
+export async function rejectQuote(quoteId: string, reason?: string) {
   const session = await auth()
   if (!session?.user) throw new Error('Non authentifie')
   if (!can.accessBudget(session.user.role)) throw new Error('Permission refusee')

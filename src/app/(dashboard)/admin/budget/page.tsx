@@ -102,7 +102,7 @@ export default async function BudgetPage() {
                   </div>
                 </div>
                 <p style={{ fontSize: 18, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.02em', flexShrink: 0 }}>
-                  {formatAmount(quote.amount)}
+                  {formatAmount(Number(quote.amount))}
                 </p>
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
@@ -145,7 +145,7 @@ export default async function BudgetPage() {
                 </div>
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
                   <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{formatAmount(line.spent)}</p>
-                  <p style={{ fontSize: 11, color: 'var(--muted)' }}>/ {formatAmount(line.budget)}</p>
+                  <p style={{ fontSize: 11, color: 'var(--muted)' }}>/ {formatAmount(Number(line.budgeted))}</p>
                 </div>
               </div>
             ))}
