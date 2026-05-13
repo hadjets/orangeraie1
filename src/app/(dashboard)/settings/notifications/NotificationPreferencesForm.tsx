@@ -53,14 +53,35 @@ async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null
   }
 }
 
+/** Attend que le service worker soit dans l'état "activated" avant de continuer. */
+async function waitForActiveSW(reg: ServiceWorkerRegistration): Promise<boolean> {
+  if (reg.active) return true
+  const sw = reg.installing ?? reg.waiting
+  if (!sw) return false
+  return new Promise((resolve) => {
+    sw.addEventListener('statechange', function handler() {
+      if (sw.state === 'activated') {
+        sw.removeEventListener('statechange', handler)
+        resolve(true)
+      } else if (sw.state === 'redundant') {
+        sw.removeEventListener('statechange', handler)
+        resolve(false)
+      }
+    })
+  })
+}
+
 async function subscribeToPush(vapidKey: string): Promise<PushSubscription | null> {
   const reg = await registerServiceWorker()
   if (!reg) return null
 
-  // Attendre que le SW soit actif
-  await reg.update()
-  const sw = reg.active ?? reg.installing ?? reg.waiting
-  if (!sw) return null
+  // S'assurer que le SW est actif avant de souscrire au push
+  const isActive = await waitForActiveSW(reg)
+  if (!isActive) return null
+
+  // Vérifier si une subscription existe déjà (évite une invite répétée)
+  const existing = await reg.pushManager.getSubscription()
+  if (existing) return existing
 
   return reg.pushManager.subscribe({
     userVisibleOnly:      true,
@@ -89,8 +110,21 @@ export function NotificationPreferencesForm({ initialPrefs, vapidKey }: { initia
 
   useEffect(() => {
     if (!('Notification' in window)) { setPermState('unsupported'); return }
-    setPermState(Notification.permission as PermState)
-  }, [])
+    const perm = Notification.permission as PermState
+    setPermState(perm)
+
+    // Si la permission est déjà accordée, s'assurer qu'une subscription est enregistrée
+    // (cas : rechargement de page, autre appareil, subscription expirée)
+    if (perm === 'granted') {
+      subscribeToPush(vapidKey).then(async (sub) => {
+        if (!sub) return
+        const raw = sub.toJSON() as { endpoint: string; keys: { p256dh: string; auth: string } }
+        if (raw.endpoint && raw.keys?.p256dh && raw.keys?.auth) {
+          await subscribeWebPush(raw).catch(() => null)
+        }
+      }).catch(() => null)
+    }
+  }, [vapidKey])
 
   async function handleEnablePush() {
     if (!('Notification' in window)) return
