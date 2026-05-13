@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { getMessages } from '@/lib/queries/messages'
 import { deleteMessageForMe } from '../actions'
 import { MessageInput } from './MessageInput'
+import { RealtimeMessages } from './RealtimeMessages'
 import { ArrowLeft, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -164,6 +165,12 @@ export default async function ConversationPage({
 
       {/* Zone de saisie — Client Component pour onKeyDown + useTransition */}
       <MessageInput conversationId={conversationId} />
+
+      {/* Polling temps réel + marquer lu */}
+      <RealtimeMessages
+        conversationId={conversationId}
+        lastMessageAt={messages[0]?.createdAt.toISOString() ?? null}
+      />
     </div>
   )
 }
