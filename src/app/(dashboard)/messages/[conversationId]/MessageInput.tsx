@@ -29,30 +29,72 @@ export function MessageInput({ conversationId }: MessageInputProps) {
   }
 
   return (
-    <div className="border-t border-stone-100 px-4 py-3">
-      <div className="flex items-end gap-3">
+    <div
+      style={{
+        borderTop: '1px solid var(--border)',
+        padding: '14px 20px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8,
+        flexShrink: 0,
+        background: 'var(--surface)',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10 }}>
         <textarea
           ref={ref}
           rows={1}
-          placeholder="Ecrivez votre message…"
+          placeholder="Écrivez votre message…"
           disabled={isPending}
           onKeyDown={handleKeyDown}
-          className="flex-1 resize-none rounded-xl border border-stone-200 bg-stone-50 px-4 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100 disabled:opacity-50"
+          style={{
+            flex: 1,
+            resize: 'none',
+            borderRadius: 12,
+            border: '1px solid var(--border)',
+            background: 'var(--surface-2)',
+            padding: '10px 14px',
+            fontSize: 14,
+            color: 'var(--ink)',
+            lineHeight: 1.5,
+            outline: 'none',
+            transition: 'var(--ease)',
+            fontFamily: 'inherit',
+            opacity: isPending ? 0.5 : 1,
+          }}
+          className="msg-input"
         />
         <button
           onClick={submit}
           disabled={isPending}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-green-800 text-white transition hover:bg-green-700 disabled:opacity-50"
+          className="btn-primary"
+          style={{
+            width: 42,
+            height: 42,
+            padding: 0,
+            borderRadius: 12,
+            flexShrink: 0,
+            minHeight: 'unset',
+          }}
         >
           {isPending
-            ? <Loader2 className="h-4 w-4 animate-spin" />
-            : <Send className="h-4 w-4" />
+            ? <Loader2 style={{ width: 16, height: 16, animation: 'spin 1s linear infinite' }} />
+            : <Send style={{ width: 16, height: 16 }} />
           }
         </button>
       </div>
-      <p className="mt-1.5 text-center text-[10px] text-stone-400">
+      <p style={{ fontSize: 11, color: 'var(--muted-light)', textAlign: 'center' }}>
         Entrée pour envoyer · Maj+Entrée pour saut de ligne
       </p>
+
+      <style>{`
+        .msg-input:focus {
+          border-color: var(--clay);
+          box-shadow: 0 0 0 3px rgba(192, 124, 102, 0.12);
+          background: var(--surface);
+        }
+        .msg-input::placeholder { color: var(--muted-light); }
+      `}</style>
     </div>
   )
 }

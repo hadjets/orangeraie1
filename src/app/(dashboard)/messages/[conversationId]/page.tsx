@@ -35,15 +35,11 @@ export default async function ConversationPage({
   const session = await auth()
   if (!session?.user) redirect('/login')
 
-  // Vérifier que l'utilisateur est membre
   const member = await prisma.conversationMember.findUnique({
-    where: {
-      conversationId_userId: { conversationId, userId: session.user.id },
-    },
+    where: { conversationId_userId: { conversationId, userId: session.user.id } },
   })
   if (!member) notFound()
 
-  // Charger les membres et les messages
   const [conv, messages] = await Promise.all([
     prisma.conversation.findUnique({
       where: { id: conversationId },
@@ -66,94 +62,200 @@ export default async function ConversationPage({
     ? conv.name
     : others.map((u) => u.name).join(', ')
 
-  // Grouper messages par jour pour les séparateurs de date
   let lastDateLabel = ''
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] flex-col rounded-xl border border-stone-100 bg-white shadow-sm">
-      {/* Header conversation */}
-      <div className="flex items-center gap-3 border-b border-stone-100 px-4 py-3">
+    <div
+      className="card"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: 'calc(100vh - 8rem)',
+        padding: 0,
+        overflow: 'hidden',
+      }}
+    >
+      {/* ── Header ────────────────────────────────────────────────── */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 14,
+          padding: '14px 20px',
+          borderBottom: '1px solid var(--border)',
+          flexShrink: 0,
+        }}
+      >
         <Link
           href="/messages"
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-stone-200 text-stone-500 transition hover:bg-stone-50"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 32,
+            height: 32,
+            borderRadius: 8,
+            border: '1px solid var(--border)',
+            color: 'var(--muted)',
+            textDecoration: 'none',
+            transition: 'var(--ease)',
+            flexShrink: 0,
+          }}
+          className="btn-back"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft style={{ width: 15, height: 15 }} />
         </Link>
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-green-800 text-xs font-semibold text-white">
+
+        {/* Avatar */}
+        <div
+          className="avatar"
+          style={{ width: 36, height: 36, fontSize: 12, background: 'var(--clay)', flexShrink: 0 }}
+        >
           {others[0] ? getInitials(others[0].name ?? '?') : '?'}
         </div>
+
         <div>
-          <p className="text-sm font-semibold text-stone-900">{title}</p>
-          <p className="text-xs text-stone-400">{others.length + 1} participants</p>
+          <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.3 }}>
+            {title}
+          </p>
+          <p style={{ fontSize: 11, color: 'var(--muted-light)' }}>
+            {others.length + 1} participants
+          </p>
         </div>
       </div>
 
-      {/* Zone messages — scrollable */}
-      <div className="flex-1 space-y-1 overflow-y-auto px-4 py-4">
+      {/* ── Zone messages ─────────────────────────────────────────── */}
+      <div
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          padding: '20px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
+        }}
+      >
         {messages.length === 0 && (
-          <div className="flex h-full items-center justify-center">
-            <p className="text-sm text-stone-400">Demarrez la conversation…</p>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <p style={{ fontSize: 14, color: 'var(--muted-light)', fontStyle: 'italic' }}>
+              Démarrez la conversation…
+            </p>
           </div>
         )}
 
         {messages.map((msg) => {
-          const isMine      = msg.senderId === session.user.id
-          const dateLabel   = formatDateSeparator(msg.createdAt)
-          const showSep     = dateLabel !== lastDateLabel
+          const isMine    = msg.senderId === session.user.id
+          const dateLabel = formatDateSeparator(msg.createdAt)
+          const showSep   = dateLabel !== lastDateLabel
           if (showSep) lastDateLabel = dateLabel
 
           return (
             <div key={msg.id}>
               {/* Séparateur de date */}
               {showSep && (
-                <div className="my-3 flex items-center gap-3">
-                  <div className="h-px flex-1 bg-stone-100" />
-                  <span className="text-xs text-stone-400">{dateLabel}</span>
-                  <div className="h-px flex-1 bg-stone-100" />
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    margin: '16px 0 12px',
+                  }}
+                >
+                  <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                  <span style={{ fontSize: 11, color: 'var(--muted-light)', fontWeight: 500 }}>
+                    {dateLabel}
+                  </span>
+                  <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
                 </div>
               )}
 
               {/* Bulle message */}
-              <div className={`group flex items-end gap-2 ${isMine ? 'flex-row-reverse' : ''}`}>
+              <div
+                className="msg-row"
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-end',
+                  gap: 8,
+                  flexDirection: isMine ? 'row-reverse' : 'row',
+                  marginBottom: 4,
+                }}
+              >
+                {/* Avatar expéditeur */}
                 {!isMine && (
-                  <div className="mb-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-700 text-[10px] font-semibold text-white">
+                  <div
+                    className="avatar"
+                    style={{
+                      width: 28,
+                      height: 28,
+                      fontSize: 10,
+                      background: 'var(--clay)',
+                      marginBottom: 2,
+                      flexShrink: 0,
+                    }}
+                  >
                     {getInitials(msg.sender.name ?? '?')}
                   </div>
                 )}
 
-                <div className={`max-w-[70%] ${isMine ? 'items-end' : 'items-start'} flex flex-col`}>
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: isMine ? 'flex-end' : 'flex-start',
+                    maxWidth: '68%',
+                  }}
+                >
                   {!isMine && (
-                    <p className="mb-0.5 text-xs font-medium text-stone-500">{msg.sender.name}</p>
+                    <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', marginBottom: 3, paddingLeft: 2 }}>
+                      {msg.sender.name}
+                    </p>
                   )}
+
                   <div
-                    className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
-                      isMine
-                        ? 'rounded-br-sm bg-green-800 text-white'
-                        : 'rounded-bl-sm bg-stone-100 text-stone-900'
-                    }`}
+                    style={{
+                      padding: '10px 14px',
+                      borderRadius: 16,
+                      borderBottomRightRadius: isMine ? 4 : 16,
+                      borderBottomLeftRadius:  isMine ? 16 : 4,
+                      fontSize: 14,
+                      lineHeight: 1.5,
+                      background: isMine ? 'var(--clay)' : 'var(--surface-2)',
+                      color:      isMine ? 'white'       : 'var(--ink)',
+                    }}
                   >
                     {msg.content}
                   </div>
-                  <span className="mt-0.5 text-[10px] text-stone-400">
+
+                  <span style={{ fontSize: 10, color: 'var(--muted-light)', marginTop: 3 }}>
                     {formatTime(msg.createdAt)}
                   </span>
                 </div>
 
-                {/* Bouton soft-delete — visible au hover si c'est mon message */}
+                {/* Bouton supprimer — visible au hover */}
                 {isMine && (
                   <form
                     action={async () => {
                       'use server'
                       await deleteMessageForMe(msg.id)
                     }}
-                    className="mb-4 opacity-0 transition group-hover:opacity-100"
+                    style={{ marginBottom: 16, opacity: 0, transition: 'opacity 0.15s' }}
+                    className="msg-delete-btn"
                   >
                     <button
                       type="submit"
                       title="Supprimer pour moi"
-                      className="rounded p-1 text-stone-400 hover:text-red-500"
+                      style={{
+                        display: 'flex',
+                        padding: 4,
+                        borderRadius: 6,
+                        border: 'none',
+                        background: 'transparent',
+                        color: 'var(--muted-light)',
+                        cursor: 'pointer',
+                        transition: 'var(--ease)',
+                      }}
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
+                      <Trash2 style={{ width: 13, height: 13 }} />
                     </button>
                   </form>
                 )}
@@ -163,7 +265,7 @@ export default async function ConversationPage({
         })}
       </div>
 
-      {/* Zone de saisie — Client Component pour onKeyDown + useTransition */}
+      {/* ── Zone de saisie ────────────────────────────────────────── */}
       <MessageInput conversationId={conversationId} />
 
       {/* Polling temps réel + marquer lu */}
@@ -171,6 +273,12 @@ export default async function ConversationPage({
         conversationId={conversationId}
         lastMessageAt={messages[0]?.createdAt.toISOString() ?? null}
       />
+
+      <style>{`
+        .btn-back:hover { background: var(--surface-2); color: var(--ink); }
+        .msg-row:hover .msg-delete-btn { opacity: 1; }
+        .msg-delete-btn button:hover { color: var(--danger); }
+      `}</style>
     </div>
   )
 }
