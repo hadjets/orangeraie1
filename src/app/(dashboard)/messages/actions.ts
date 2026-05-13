@@ -43,7 +43,19 @@ export async function sendMessage(input: z.infer<typeof messageSchema>) {
     },
   })
 
+  // Marquer l'expéditeur comme ayant lu jusqu'à maintenant
+  await prisma.conversationMember.update({
+    where: {
+      conversationId_userId: {
+        conversationId: data.conversationId,
+        userId: session.user.id,
+      },
+    },
+    data: { lastReadAt: new Date() },
+  })
+
   revalidatePath(`/messages/${data.conversationId}`)
+  revalidatePath('/messages')
 
   // Notifier les autres membres de la conversation (push silencieuse si erreur)
   try {
@@ -65,6 +77,23 @@ export async function sendMessage(input: z.infer<typeof messageSchema>) {
   } catch { /* push non bloquante */ }
 
   return { success: true, message }
+}
+
+export async function markConversationRead(conversationId: string) {
+  const session = await auth()
+  if (!session?.user) return
+
+  await prisma.conversationMember.update({
+    where: {
+      conversationId_userId: {
+        conversationId,
+        userId: session.user.id,
+      },
+    },
+    data: { lastReadAt: new Date() },
+  }).catch(() => null) // silencieux si pas membre
+
+  revalidatePath('/messages')
 }
 
 export async function deleteMessageForMe(messageId: string) {
@@ -110,3 +139,4 @@ export async function startConversation(targetUserId: string) {
   revalidatePath('/messages')
   return { success: true, conversationId }
 }
+
