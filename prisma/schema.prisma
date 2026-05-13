@@ -1,0 +1,416 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── ENUMS ────────────────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  CONSEIL
+  SYNDIC
+  COPROPRIETAIRE
+  LOCATAIRE
+}
+
+enum AccountStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+}
+
+enum TicketStatus {
+  PENDING
+  APPROVED
+  IN_PROGRESS
+  RESOLVED
+  REJECTED
+}
+
+enum TicketLocation {
+  BLOC_A
+  BLOC_B
+  BLOC_C
+  COMMUN
+}
+
+enum AnnouncementStatus {
+  DRAFT
+  PENDING_APPROVAL
+  PUBLISHED
+  ARCHIVED
+}
+
+// ─── AUTH (NextAuth.js v5) ────────────────────────────────────────
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─── UTILISATEURS ─────────────────────────────────────────────────
+
+model User {
+  id        String        @id @default(cuid())
+  email     String        @unique
+  name      String
+  role      Role
+  status    AccountStatus @default(PENDING)
+  apartment String?
+  bloc      String?
+  avatarUrl String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  accounts Account[]
+  sessions Session[]
+  passkeys Passkey[]
+
+  sentInvitations    Invitation[] @relation("InvitedBy")
+  receivedInvitation Invitation?  @relation("InvitedUser")
+
+  createdTickets   Ticket[]        @relation("TicketCreator")
+  validatedTickets Ticket[]        @relation("TicketValidator")
+  ticketComments   TicketComment[]
+
+  sentMessages    Message[]            @relation("MessageSender")
+  conversations   ConversationMember[]
+  deletedMessages DeletedMessage[]
+
+  uploadedDocuments Document[]
+  announcements     Announcement[]
+  pollResponses     PollResponse[]
+
+  notifPrefs        NotificationPreference?
+  pushSubscriptions PushSubscription[]
+
+  submittedQuotes Quote[]
+  budgetExpenses  Expense[]
+
+  landlordId String?
+  landlord   User?   @relation("LandlordTenants", fields: [landlordId], references: [id])
+  tenants    User[]  @relation("LandlordTenants")
+}
+
+// ─── WEBAUTHN (PASSKEYS) ──────────────────────────────────────────
+
+model Passkey {
+  id           String   @id @default(cuid())
+  userId       String
+  credentialId String   @unique
+  publicKey    Bytes
+  counter      BigInt
+  deviceType   String
+  backedUp     Boolean
+  transports   String?
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── INVITATIONS ─────────────────────────────────────────────────
+
+model Invitation {
+  id        String    @id @default(cuid())
+  email     String
+  role      Role
+  token     String    @unique @default(cuid())
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  invitedById String
+  invitedBy   User   @relation("InvitedBy", fields: [invitedById], references: [id])
+
+  invitedUserId String? @unique
+  invitedUser   User?   @relation("InvitedUser", fields: [invitedUserId], references: [id])
+}
+
+// ─── TICKETS (INCIDENTS) ─────────────────────────────────────────
+
+model Ticket {
+  id          String         @id @default(cuid())
+  title       String
+  description String
+  location    TicketLocation
+  bloc        String?
+  status      TicketStatus   @default(PENDING)
+  photoUrls   String[]
+
+  createdById String
+  createdBy   User   @relation("TicketCreator", fields: [createdById], references: [id])
+
+  validatedById String?
+  validatedBy   User?     @relation("TicketValidator", fields: [validatedById], references: [id])
+  validatedAt   DateTime?
+
+  comments TicketComment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, createdAt])
+  @@index([createdById])
+}
+
+model TicketComment {
+  id        String   @id @default(cuid())
+  content   String
+  ticketId  String
+  authorId  String
+  createdAt DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author User   @relation(fields: [authorId], references: [id])
+}
+
+// ─── MESSAGERIE ──────────────────────────────────────────────────
+
+model Conversation {
+  id        String   @id @default(cuid())
+  isGroup   Boolean  @default(false)
+  name      String?
+  createdAt DateTime @default(now())
+
+  members  ConversationMember[]
+  messages Message[]
+}
+
+model ConversationMember {
+  id             String   @id @default(cuid())
+  conversationId String
+  userId         String
+  joinedAt       DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id])
+
+  @@unique([conversationId, userId])
+}
+
+model Message {
+  id             String   @id @default(cuid())
+  content        String
+  attachmentUrls String[]
+  conversationId String
+  senderId       String
+  createdAt      DateTime @default(now())
+
+  conversation Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User             @relation("MessageSender", fields: [senderId], references: [id])
+  deletedBy    DeletedMessage[]
+
+  @@index([conversationId, createdAt])
+}
+
+model DeletedMessage {
+  id        String   @id @default(cuid())
+  messageId String
+  userId    String
+  deletedAt DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@unique([messageId, userId])
+}
+
+// ─── DOCUMENTS ───────────────────────────────────────────────────
+
+model DocumentFolder {
+  id           String   @id @default(cuid())
+  name         String
+  parentId     String?
+  allowedRoles Role[]
+  isLocked     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  parent    DocumentFolder?  @relation("FolderHierarchy", fields: [parentId], references: [id])
+  children  DocumentFolder[] @relation("FolderHierarchy")
+  documents Document[]
+}
+
+model Document {
+  id           String   @id @default(cuid())
+  name         String
+  fileUrl      String
+  fileType     String
+  fileSize     Int
+  folderId     String
+  uploadedById String
+  createdAt    DateTime @default(now())
+
+  folder     DocumentFolder @relation(fields: [folderId], references: [id])
+  uploadedBy User           @relation(fields: [uploadedById], references: [id])
+}
+
+// ─── ANNONCES ────────────────────────────────────────────────────
+
+model Announcement {
+  id          String             @id @default(cuid())
+  title       String
+  content     String
+  imageUrl    String?
+  status      AnnouncementStatus @default(DRAFT)
+  authorId    String
+  publishedAt DateTime?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  author User @relation(fields: [authorId], references: [id])
+}
+
+// ─── DEVIS ───────────────────────────────────────────────────────
+
+model Quote {
+  id             String    @id @default(cuid())
+  title          String
+  description    String
+  amount         Decimal   @db.Decimal(10, 2)
+  fileUrl        String?
+  status         String    @default("PENDING")
+  submittedById  String
+  budgetLineId   String?
+  approvedById   String?
+  approvedAt     DateTime?
+  rejectedReason String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  submittedBy User        @relation(fields: [submittedById], references: [id])
+  budgetLine  BudgetLine? @relation(fields: [budgetLineId], references: [id])
+}
+
+// ─── BUDGET ──────────────────────────────────────────────────────
+
+model BudgetLine {
+  id        String   @id @default(cuid())
+  year      Int
+  category  String
+  label     String
+  budgeted  Decimal  @db.Decimal(10, 2)
+  actual    Decimal  @default(0) @db.Decimal(10, 2)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  expenses Expense[]
+  quotes   Quote[]
+
+  @@index([year])
+}
+
+model Expense {
+  id           String   @id @default(cuid())
+  budgetLineId String
+  amount       Decimal  @db.Decimal(10, 2)
+  description  String
+  receiptUrl   String?
+  date         DateTime
+  createdById  String
+  createdAt    DateTime @default(now())
+
+  budgetLine BudgetLine @relation(fields: [budgetLineId], references: [id])
+  createdBy  User       @relation(fields: [createdById], references: [id])
+}
+
+// ─── SONDAGES ────────────────────────────────────────────────────
+
+model Poll {
+  id          String    @id @default(cuid())
+  question    String
+  targetRoles Role[]
+  targetBloc  String?
+  endsAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  options   PollOption[]
+  responses PollResponse[]
+}
+
+model PollOption {
+  id     String @id @default(cuid())
+  text   String
+  pollId String
+
+  poll      Poll           @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  responses PollResponse[]
+}
+
+model PollResponse {
+  id       String @id @default(cuid())
+  pollId   String
+  optionId String
+  userId   String
+
+  poll   Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  option PollOption @relation(fields: [optionId], references: [id])
+  user   User       @relation(fields: [userId], references: [id])
+
+  @@unique([pollId, userId])
+}
+
+// ─── NOTIFICATIONS ───────────────────────────────────────────────
+
+model NotificationPreference {
+  id              String  @id @default(cuid())
+  userId          String  @unique
+  newMessage      Boolean @default(true)
+  ticketUpdate    Boolean @default(true)
+  newAnnouncement Boolean @default(true)
+  newPoll         Boolean @default(true)
+  emailEnabled    Boolean @default(true)
+  pushEnabled     Boolean @default(true)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique
+  type      String
+  p256dh    String?
+  auth      String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
