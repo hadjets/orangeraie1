@@ -5,6 +5,7 @@ import {
   Newspaper, Wrench, MessageCircle, FolderOpen,
   BarChart2, Settings, LogOut, Bell, UserCircle,
 } from 'lucide-react'
+import { UnreadBadge } from './UnreadBadge'
 
 const roleBadge: Record<string, { label: string; bg: string; color: string }> = {
   ADMIN:          { label: 'Admin',          bg: '#EDEDEB', color: '#3D3D3D' },
@@ -132,6 +133,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
                     >
                       <Icon style={{ width: 16, height: 16, flexShrink: 0 }} />
                       {item.label}
+                      {item.href === '/messages' && <UnreadBadge />}
                     </Link>
                   )
                 })}
@@ -292,10 +294,16 @@ export default async function DashboardLayout({ children }: { children: React.Re
                   whiteSpace: 'nowrap',
                   flexShrink: 0,
                   transition: 'var(--ease)',
+                  position: 'relative',
                 }}
               >
                 <Icon style={{ width: 17, height: 17 }} />
                 {item.label}
+                {item.href === '/messages' && (
+                  <span style={{ position: 'absolute', top: 6, right: 8 }}>
+                    <UnreadBadge />
+                  </span>
+                )}
               </Link>
             )
           })}
